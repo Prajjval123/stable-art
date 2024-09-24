@@ -16,14 +16,20 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import Image from "next/image";
+import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
-  prompt: z.string().min(7, {message: "Prompt must be at least 7 characters long!"}),
+  prompt: z
+    .string()
+    .min(7, { message: "Prompt must be at least 7 characters long!" }),
 });
 
 export default function page() {
   const [outputImg, setOutputImg] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -32,8 +38,24 @@ export default function page() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/image", {
+        method: "POST",
+        body: JSON.stringify(values),
+      });
+      const data = await response.json();
+      if (response.status === 200) {
+        setOutputImg(data.url);
+      } else {
+        toast({ variant: "destructive", description: data.error })
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   }
   return (
     <div className="w-full h-dvh flex justify-center items-center pt-[60px] flex-col">
@@ -43,7 +65,7 @@ export default function page() {
           Genrate Stunning Images from Text for FREE
         </p>
       </div>
-      <div className="flex border border-green-500 w-full gap-3 h-full">
+      <div className="flex w-full gap-3 h-full">
         <div className="__form flex flex-col justify-center flex-[2] border border-yellow-400">
           <p className="text-left text-sm text-white/80">
             Type your prompt below to create any image you can imagine
@@ -70,14 +92,30 @@ export default function page() {
                     </FormItem>
                   )}
                 />
-                <Button variant="secondary">Generate</Button>
+                <Button loading={loading} variant="secondary">
+                  Generate
+                </Button>
               </form>
             </Form>
-
-            
           </div>
         </div>
-        <div className="__output flex-[1] bg-white/5 rounded-md"></div>
+        <div className="__output flex-[1] bg-white/5 rounded-lg relative overflow-hidden">
+          {outputImg ? (
+            <Image
+              alt="output"
+              className="w-full h-full object-contain"
+              src={outputImg}
+              width={300}
+              height={300}
+            />
+          ) : (
+            <>
+              <div className="w-full h-full flex justify-center items-center text-white/70 text-center p-3">
+                Enter your prompt and hit generate!
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
